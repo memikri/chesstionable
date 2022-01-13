@@ -1,6 +1,8 @@
 use std::error::Error;
 use std::fmt;
+use std::iter::{DoubleEndedIterator, ExactSizeIterator, Iterator};
 use std::mem::transmute;
+use std::ops::RangeInclusive;
 use std::str::FromStr;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -14,6 +16,21 @@ pub enum File {
     FileG = 6,
     FileH = 7,
 }
+// maybe it woudl be better to have someething like:
+/*
+    for rank in Board::ranks() {
+        for file in Board::files() {
+            let square = Square::new(file, rank);
+            let neighbors = square.neighbors();
+            let above = square.above(); // should square be aware of the board somehow?
+            // for square.above() it doesn't need to be // oh right lmao I'm too tired for this lmao
+            // yooo we could make a 3d chess mode :)
+            // unless we're gonna have different size boards but fuck that
+            println!("{}", square);
+        }
+    }
+*/
+// maybe have ranks() and files() be static though because it doesn't really depend on the state
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Rank {
@@ -284,18 +301,62 @@ impl fmt::Display for Square {
     }
 }
 
-impl Iterator for ops::Range<File> {
+impl Iterator for RangeInclusive<File> {
+    // try running the "implement default members" quick fix on exactsizeiterator
+    // i don't have that
+    // ctrl+. while on the token?
+    // yeah i don't have any quickfixes
+    // weird
+    // here
+    // probably live share being fuck again
     type Item = File;
     fn next(&mut self) -> Option<Self::Item> {
-        let next = self.start.next();
-        if let Some(next) = next {
-            self.start = next;
-        }
-        if next == self.end {
+        if self.start == self.end {
             None
         } else {
-            self.start = next.unwrap();
-            Some(next.unwrap())
+            let next = self.start.next().unwrap();
+            self.start = next;
+            Some(next)
         }
     }
+}
+
+impl DoubleEndedIterator for RangeInclusive<File> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        if self.start == self.end {
+            None
+        } else {
+            let next = self.end.prev().unwrap();
+            self.end = next;
+            Some(next)
+        }
+    }
+}
+
+// I gtg to bed, I'll leave the liveshare open
+// nah dw about it i should also go to bed
+// it's 5:52 am here
+
+// lmao I thought so
+// ok let's pick this back up tmr somtime
+// when are you free?
+
+// uh like 10pm GMT ish
+// i'll be here :ok_hand:
+
+impl ExactSizeIterator for RangeInclusive<File> {
+    fn len(&self) -> usize {
+        self.end.wrapping_sub(self.start) as usize + 1
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let len = self.len();
+        (len, Some(len))
+    }
+
+    fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    // that's copilot's take
 }

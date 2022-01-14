@@ -1,94 +1,108 @@
+use std::{mem::transmute, str::FromStr};
+
+use crate::{errors::ChessError, utils::impl_index};
+
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Color {
-    White = 0,
-    Black = 1,
+    White,
+    Black,
+}
+
+impl FromStr for Color {
+    type Err = ChessError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "w" | "W" => Ok(Color::White),
+            "b" | "B" => Ok(Color::Black),
+            _ => Err(ChessError::ParseError(s.to_string(), "Color")),
+        }
+    }
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum PieceType {
-    Pawn = 0,
-    Knight = 1,
-    Bishop = 2,
-    Rook = 3,
-    Queen = 4,
-    King = 5,
+    Pawn,
+    Knight,
+    Bishop,
+    Rook,
+    Queen,
+    King,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Piece {
-    Pawn(Color),
-    Knight(Color),
-    Bishop(Color),
-    Rook(Color),
-    Queen(Color),
-    King(Color),
-    // maybe WhitePawn in future???
-    // coming back on this the code actually seems pretty nice, let's hope performance is good as well
-    // although if we're gonna have arrays indexed by piece it'd be really nice to just do Piece as usize
-    // maybe a conversion macro? or function to convert to usize?
+    WhitePawn,
+    BlackPawn,
+    WhiteKnight,
+    BlackKnight,
+    WhiteBishop,
+    BlackBishop,
+    WhiteRook,
+    BlackRook,
+    WhiteQueen,
+    BlackQueen,
+    WhiteKing,
+    BlackKing,
 }
 
-pub const WHITE_PAWN: Piece = Piece::Pawn(Color::White);
-pub const BLACK_PAWN: Piece = Piece::Pawn(Color::Black);
-pub const WHITE_KNIGHT: Piece = Piece::Knight(Color::White);
-pub const BLACK_KNIGHT: Piece = Piece::Knight(Color::Black);
-pub const WHITE_BISHOP: Piece = Piece::Bishop(Color::White);
-pub const BLACK_BISHOP: Piece = Piece::Bishop(Color::Black);
-pub const WHITE_ROOK: Piece = Piece::Rook(Color::White);
-pub const BLACK_ROOK: Piece = Piece::Rook(Color::Black);
-pub const WHITE_QUEEN: Piece = Piece::Queen(Color::White);
-pub const BLACK_QUEEN: Piece = Piece::Queen(Color::Black);
-pub const WHITE_KING: Piece = Piece::King(Color::White);
-pub const BLACK_KING: Piece = Piece::King(Color::Black);
+pub const COLOR_COUNT: usize = 2;
+pub const PIECE_TYPE_COUNT: usize = 6;
+pub const PIECE_COUNT: usize = COLOR_COUNT * PIECE_TYPE_COUNT;
+
+impl_index! { Color(COLOR_COUNT) }
+impl_index! { PieceType(PIECE_TYPE_COUNT) }
+impl_index! { Piece(PIECE_COUNT) }
 
 impl Piece {
     pub fn new(color: Color, piece_type: PieceType) -> Piece {
-        match piece_type {
-            PieceType::Pawn => Piece::Pawn(color),
-            PieceType::Knight => Piece::Knight(color),
-            PieceType::Bishop => Piece::Bishop(color),
-            PieceType::Rook => Piece::Rook(color),
-            PieceType::Queen => Piece::Queen(color),
-            PieceType::King => Piece::King(color),
-        }
+        unsafe { transmute((color.index() + piece_type.index() * 2) as u8) }
     }
 
-    pub fn piece_type(&self) -> PieceType {
-        match *self {
-            Piece::Pawn(_) => PieceType::Pawn,
-            Piece::Knight(_) => PieceType::Knight,
-            Piece::Bishop(_) => PieceType::Bishop,
-            Piece::Rook(_) => PieceType::Rook,
-            Piece::Queen(_) => PieceType::Queen,
-            Piece::King(_) => PieceType::King,
-        }
+    pub fn piece_type(self) -> PieceType {
+        unsafe { transmute((self.index() / 2) as u8) }
     }
 
-    pub fn color(&self) -> Color {
-        match *self {
-            Piece::Pawn(color) => color,
-            Piece::Knight(color) => color,
-            Piece::Bishop(color) => color,
-            Piece::Rook(color) => color,
-            Piece::Queen(color) => color,
-            Piece::King(color) => color,
-        }
+    pub fn color(self) -> Color {
+        unsafe { transmute((self.index() % 2) as u8) }
     }
 
     pub fn as_str(&self) -> &'static str {
         match *self {
-            Piece::Pawn(Color::White) => "P",
-            Piece::Pawn(Color::Black) => "p",
-            Piece::Knight(Color::White) => "N",
-            Piece::Knight(Color::Black) => "n",
-            Piece::Bishop(Color::White) => "B",
-            Piece::Bishop(Color::Black) => "b",
-            Piece::Rook(Color::White) => "R",
-            Piece::Rook(Color::Black) => "r",
-            Piece::Queen(Color::White) => "Q",
-            Piece::Queen(Color::Black) => "q",
-            Piece::King(Color::White) => "K",
-            Piece::King(Color::Black) => "k",
+            Piece::WhitePawn => "P",
+            Piece::BlackPawn => "p",
+            Piece::WhiteKnight => "N",
+            Piece::BlackKnight => "n",
+            Piece::WhiteBishop => "B",
+            Piece::BlackBishop => "b",
+            Piece::WhiteRook => "R",
+            Piece::BlackRook => "r",
+            Piece::WhiteQueen => "Q",
+            Piece::BlackQueen => "q",
+            Piece::WhiteKing => "K",
+            Piece::BlackKing => "k",
+        }
+    }
+}
+
+impl FromStr for Piece {
+    type Err = ChessError;
+
+    fn from_str(s: &str) -> Result<Piece, ChessError> {
+        match s {
+            "P" => Ok(Piece::WhitePawn),
+            "p" => Ok(Piece::BlackPawn),
+            "N" => Ok(Piece::WhiteKnight),
+            "n" => Ok(Piece::BlackKnight),
+            "B" => Ok(Piece::WhiteBishop),
+            "b" => Ok(Piece::BlackBishop),
+            "R" => Ok(Piece::WhiteRook),
+            "r" => Ok(Piece::BlackRook),
+            "Q" => Ok(Piece::WhiteQueen),
+            "q" => Ok(Piece::BlackQueen),
+            "K" => Ok(Piece::WhiteKing),
+            "k" => Ok(Piece::BlackKing),
+            _ => Err(ChessError::ParseError(s.to_string(), "Piece")),
         }
     }
 }

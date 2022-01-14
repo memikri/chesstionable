@@ -1,99 +1,24 @@
-use core::fmt;
 use std::str::FromStr;
 
 use crate::{
+    errors::ChessError,
+    file::File,
     piece::*, // too lazy to import individually
-    square::{File, Square},
-    state::{Castling, Ply, State},
+    rank::Rank,
+    square::Square,
+    state::{Castling, State},
 };
-use logos::Logos;
-
-#[derive(Logos, Debug, PartialEq)]
-pub enum FENToken {
-    #[token("p")]
-    BlackPawn,
-    #[token("n")]
-    BlackKnight,
-    #[token("b")]
-    BlackBishop,
-    #[token("r")]
-    BlackRook,
-    #[token("q")]
-    BlackQueen,
-    #[token("k")]
-    BlackKing,
-    //
-    #[token("P")]
-    WhitePawn,
-    #[token("N")]
-    WhiteKnight,
-    #[token("B")]
-    WhiteBishop,
-    #[token("R")]
-    WhiteRook,
-    #[token("Q")]
-    WhiteQueen,
-    #[token("K")]
-    WhiteKing,
-    //
-    #[regex(r"[1-8]", |lex| lex.slice().parse::<u8>().unwrap())]
-    Empty(u8),
-    #[token("/")]
-    Slash,
-    //
-    #[error]
-    Error,
-    // metadata handled separately
-}
-
-#[derive(Logos, Debug, PartialEq)]
-pub enum FENMetadata {
-    #[token("w")]
-    White,
-    #[token("b")]
-    Black,
-    #[token("-")]
-    Dash,
-    #[token("K")]
-    WhiteCanCastleKingside,
-    #[token("Q")]
-    WhiteCanCastleQueenside,
-    #[token("k")]
-    BlackCanCastleKingside,
-    #[token("q")]
-    BlackCanCastleQueenside,
-    #[regex(r"[a-h][1-8]", |lex| Square::from_str(lex.slice()).unwrap())]
-    EnPassant(Square),
-    #[regex(r"[0-9]+", |lex| lex.slice().parse::<u16>().unwrap())]
-    Ply(u16),
-    #[token(" ", logos::skip)]
-    Whitespace,
-    #[error]
-    Error,
-}
-
-#[derive(Debug)]
-pub enum FENError {
-    InvalidToken,
-    InvalidMetadata,
-    Overflow,
-}
-
-impl std::error::Error for FENError {}
-
-impl fmt::Display for FENError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            FENError::InvalidToken => write!(f, "FEN error token reached"),
-            FENError::InvalidMetadata => write!(f, "FEN metadata error token reached"),
-            FENError::Overflow => write!(f, "FEN error: too much data"),
-        }
-    }
-}
 
 impl State {
-    // Result<State> for parse errors?
-    pub fn from_fen(fen: &str) -> Result<State, FENError> {
+    fn map_empty_fen(s: &str) -> Option<&str> {
+        if s == "-" {
+            None
+        } else {
+            Some(s)
+        }
+    }
+
+    pub fn from_fen(fen: &str) -> Result<State, ChessError> {
         // pkbqrpn = black pieces
         // PKBQRPN = white pieces
         // '/' = new rank
@@ -101,71 +26,62 @@ impl State {
 
         let (pieces, metadata) = fen.split_at(fen.find(' ').unwrap()); // TODO remove unwrap
 
-        let lexer = FENToken::lexer(pieces);
         let mut state = State::new();
-        let mut square = Square::A8;
+        let ranks: Vec<&str> = pieces.split('/').collect();
+        if ranks.len() != 8 {
+            return Err(ChessError::InvalidFEN("Invalid number of ranks".into()));
+        }
 
-        for token in lexer.into_iter() {
-            match token {
-                FENToken::BlackPawn => state.board.set_piece(square, Some(BLACK_PAWN)),
-                FENToken::BlackKnight => state.board.set_piece(square, Some(BLACK_KNIGHT)),
-                FENToken::BlackBishop => state.board.set_piece(square, Some(BLACK_ROOK)),
-                FENToken::BlackRook => state.board.set_piece(square, Some(BLACK_ROOK)),
-                FENToken::BlackQueen => state.board.set_piece(square, Some(BLACK_QUEEN)),
-                FENToken::BlackKing => state.board.set_piece(square, Some(BLACK_KING)),
-                FENToken::WhitePawn => state.board.set_piece(square, Some(WHITE_PAWN)),
-                FENToken::WhiteKnight => state.board.set_piece(square, Some(WHITE_KNIGHT)),
-                FENToken::WhiteBishop => state.board.set_piece(square, Some(WHITE_BISHOP)),
-                FENToken::WhiteRook => state.board.set_piece(square, Some(WHITE_ROOK)),
-                FENToken::WhiteQueen => state.board.set_piece(square, Some(WHITE_QUEEN)),
-                FENToken::WhiteKing => state.board.set_piece(square, Some(WHITE_KING)),
-                FENToken::Empty(num) =>
-                    for _ in 0..num {
-                        state.board.set_piece(square, None);
-                        square = Square::new(square.file().next().unwrap(), square.rank());
-                    },
-                FENToken::Slash => {
-                    square = Square::new(File::FileA, square.rank().prev().unwrap());
+        for (rank_index, rank_data) in ranks.iter().enumerate() {
+            let rank = Rank::from_index(rank_index).expect("Invalid rank index");
+            let mut file = File::A;
+            for piece in rank_data.chars() {
+                if piece.is_digit(10) {
+                    file = file
+                        .right_n(piece.to_digit(10).unwrap() as usize - 1)
+                        .ok_or(ChessError::InvalidFEN("Invalid file index".into()))?;
+                } else {
+                    let piece = Piece::from_str(&piece.to_string())?;
+                    let square = Square::new(rank, file);
+                    state.board.set_piece(square, Some(piece));
+                    if file != File::H {
+                        file = file
+                            .right()
+                            .ok_or(ChessError::InvalidFEN("Invalid file index".into()))?;
+                    }
                 }
-                FENToken::Error => return Err(FENError::InvalidToken),
-            }
-
-            if state.board.piece(square).is_some() {
-                square = Square::new(square.file().next().unwrap(), square.rank());
             }
         }
 
-        let meta_lexer = FENMetadata::lexer(metadata);
+        let mut metadata_iter = metadata.split(' ').filter(|s| !s.is_empty());
+        let turn = metadata_iter
+            .next()
+            .ok_or(ChessError::InvalidFEN("Missing turn".into()))?
+            .parse::<Color>()?;
+        let castling = metadata_iter
+            .next()
+            .ok_or(ChessError::InvalidFEN("Missing castling".into()))?
+            .parse::<Castling>()?;
+        let en_passant = metadata_iter
+            .next()
+            .map(|s| State::map_empty_fen(s).map(|s| s.parse::<Square>()))
+            .ok_or(ChessError::InvalidFEN("Missing/invalid en passant".into()))?;
+        let half_move_clock = metadata_iter
+            .next()
+            .ok_or(ChessError::InvalidFEN("Missing half move clock".into()))?
+            .parse::<u16>()
+            .map_err(|_| ChessError::InvalidFEN("Invalid half move clock".into()))?;
+        let full_move_number = metadata_iter
+            .next()
+            .ok_or(ChessError::InvalidFEN("Missing full move number".into()))?
+            .parse::<u16>()
+            .map_err(|_| ChessError::InvalidFEN("Invalid full move number".into()))?;
 
-        let mut color: Option<Color> = None;
-        let mut ply: Option<Ply> = None;
-        let mut halfmove_clock: Option<Ply> = None;
-
-        for token in meta_lexer.into_iter() {
-            match token {
-                FENMetadata::White => color = Some(Color::White),
-                FENMetadata::Black => color = Some(Color::Black),
-                FENMetadata::Dash => (),
-                FENMetadata::WhiteCanCastleKingside => state.castling.white_king = true,
-                FENMetadata::WhiteCanCastleQueenside => state.castling.white_queen = true,
-                FENMetadata::BlackCanCastleKingside => state.castling.black_king = true,
-                FENMetadata::BlackCanCastleQueenside => state.castling.black_queen = true,
-                FENMetadata::EnPassant(square) => state.en_passant = Some(square),
-                FENMetadata::Ply(v) =>
-                    if halfmove_clock.is_none() {
-                        halfmove_clock = Some(v);
-                    } else if ply.is_none() {
-                        ply = Some(v * 2);
-                    } else {
-                        return Err(FENError::Overflow);
-                    },
-                FENMetadata::Error => return Err(FENError::InvalidMetadata),
-                FENMetadata::Whitespace => unreachable!(),
-            }
-        }
-
-        state.ply = ply.unwrap() + color.unwrap() as Ply;
-        state.halfmove_clock = halfmove_clock.unwrap();
+        // state.turn = turn;
+        state.castling = castling;
+        state.en_passant = en_passant.map(|s| s.unwrap());
+        state.halfmove_clock = half_move_clock;
+        state.ply = full_move_number;
 
         Ok(state)
     }
@@ -182,13 +98,12 @@ impl State {
         let mut fen = String::new();
         let mut empty_count: u8 = 0;
         for (i, piece) in self.board.board.iter().rev().enumerate() {
-            if i % 8 == rank {
-                // TODO: is this correct?
-                if empty_count > 0 {
-                    fen.push_str(&empty_count.to_string());
-                    empty_count = 0;
-                }
+            if i == rank {
                 if piece.is_some() {
+                    if empty_count > 0 {
+                        fen.push_str(&empty_count.to_string());
+                        empty_count = 0;
+                    }
                     fen.push_str(&piece.unwrap().as_str());
                 } else {
                     empty_count += 1;

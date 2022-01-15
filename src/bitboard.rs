@@ -56,16 +56,32 @@ impl BitBoard {
         BitBoard(self.0.wrapping_shl(8))
     }
 
+    pub fn up_n(self, n: u32) -> BitBoard {
+        BitBoard(self.0.wrapping_shl(n << 3))
+    }
+
     pub fn down(self) -> BitBoard {
         BitBoard(self.0.wrapping_shr(8))
+    }
+
+    pub fn down_n(self, n: u32) -> BitBoard {
+        BitBoard(self.0.wrapping_shr(n << 3))
     }
 
     pub fn left(self) -> BitBoard {
         BitBoard(self.0.wrapping_shr(1) & 0x7F7F7F7F7F7F7F7Fu64)
     }
 
+    pub fn left_n(self, n: u32) -> BitBoard {
+        (0..n).fold(self, |bb, _| bb.left())
+    }
+
     pub fn right(self) -> BitBoard {
         BitBoard(self.0.wrapping_shl(1) & 0xFEFEFEFEFEFEFEFEu64)
+    }
+
+    pub fn right_n(self, n: u32) -> BitBoard {
+        (0..n).fold(self, |bb, _| bb.right())
     }
 
     pub fn shift(self, direction: Direction) -> BitBoard {

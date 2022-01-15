@@ -39,8 +39,10 @@ impl BitBoard {
 
     pub fn knight_moves(self) -> BitBoard {
         let v1 = self.up() | self.down();
-        let v2 = self.up().up() | self.down().down();
-        let h1 = v1.left().left() | v1.right().right();
+        let v2 = self.up_n(2) | self.down_n(2);
+        // let v2 = self.up().up() | self.down().down();
+        // let h1 = v1.left().left() | v1.right().right();
+        let h1 = v1.left_n(2) | v1.right_n(2);
         let h2 = v2.left() | v2.right();
         h1 | h2
     }

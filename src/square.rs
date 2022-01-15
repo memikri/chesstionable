@@ -9,6 +9,7 @@ use std::mem::transmute;
 use std::str::FromStr;
 
 #[derive(PartialEq, Eq, Copy, Clone, Debug)]
+#[allow(dead_code)]
 pub enum Square {
     A1 = 0o00,
     B1 = 0o01,

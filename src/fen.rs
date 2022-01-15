@@ -54,7 +54,7 @@ impl State {
         }
 
         let mut metadata_iter = metadata.split(' ').filter(|s| !s.is_empty());
-        let turn = metadata_iter
+        let _turn = metadata_iter // TODO: what to do with this?
             .next()
             .ok_or(ChessError::InvalidFEN("Missing turn".into()))?
             .parse::<Color>()?;

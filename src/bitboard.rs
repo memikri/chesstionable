@@ -74,6 +74,11 @@ impl BitBoard {
             Direction::Down => self.down(),
             Direction::Left => self.left(),
             Direction::Right => self.right(),
+
+            Direction::UpLeft => self.up().left(),
+            Direction::UpRight => self.up().right(),
+            Direction::DownLeft => self.down().left(),
+            Direction::DownRight => self.down().right(),
         }
     }
 }

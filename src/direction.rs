@@ -6,6 +6,11 @@ pub enum Direction {
     Down,
     Left,
     Right,
+
+    UpLeft,
+    UpRight,
+    DownLeft,
+    DownRight,
 }
 
 impl Not for Direction {
@@ -17,6 +22,11 @@ impl Not for Direction {
             Direction::Down => Direction::Up,
             Direction::Left => Direction::Right,
             Direction::Right => Direction::Left,
+
+            Direction::UpLeft => Direction::DownRight,
+            Direction::UpRight => Direction::DownLeft,
+            Direction::DownLeft => Direction::UpRight,
+            Direction::DownRight => Direction::UpLeft,
         }
     }
 }

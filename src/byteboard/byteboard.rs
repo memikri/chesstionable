@@ -1,176 +1,40 @@
 use std::{fmt, intrinsics::transmute};
 
-const OCCUPIED_MASK: u8 = 0b10000000;
+use crate::{
+    bitboard::{BitBoard, EMPTY},
+    byteboard::bytesquare::*,
+    square::Square,
+};
 
-#[derive(Debug)]
-pub enum ByteColor {
-    White = 0b00000000,
-    Black = 0b01000000,
-}
-const COLOR_MASK: u8 = 0b01000000;
-
-enum PieceType {
-    King = 0b00000000,
-    Queen = 0b00001000,
-    Rook = 0b00010000,
-    Bishop = 0b00011000,
-    Knight = 0b00100000,
-    Pawn = 0b00101000,
-}
-const PIECE_MASK: u8 = 0b00111000;
-
-impl fmt::Display for PieceType {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "{}",
-            match *self {
-                PieceType::Pawn => "p",
-                PieceType::Knight => "n",
-                PieceType::Bishop => "b",
-                PieceType::Rook => "r",
-                PieceType::Queen => "q",
-                PieceType::King => "k",
-            }
-        )
-    }
-}
-
-const KING_OR_ROOK_MOVED_FLAG_MASK: u8 = 0b00000100;
-const PAWN_EN_PASSANT_FLAG_MASK: u8 = 0b00000100;
-const LAST_MOVE_FLAG_MASK: u8 = 0b00000010;
-
-#[derive(Copy, Clone)]
-struct ByteSquare(u8);
-
-impl ByteSquare {
-    pub fn occupied(&self) -> bool {
-        (self.0 & OCCUPIED_MASK) != 0
-    }
-
-    pub fn color(&self) -> ByteColor {
-        unsafe { std::mem::transmute(self.0 & COLOR_MASK) }
-    }
-
-    pub fn piece_type(&self) -> PieceType {
-        unsafe { std::mem::transmute(self.0 & PIECE_MASK) }
-    }
-
-    pub fn king_or_rook_moved(&self) -> bool {
-        (self.0 & KING_OR_ROOK_MOVED_FLAG_MASK) != 0
-    }
-
-    pub fn pawn_en_passant(&self) -> bool {
-        (self.0 & PAWN_EN_PASSANT_FLAG_MASK) != 0
-    }
-
-    pub fn last_move(&self) -> bool {
-        (self.0 & LAST_MOVE_FLAG_MASK) != 0
-    }
-
-    pub fn set_occupied(&mut self, occupied: bool) {
-        if occupied {
-            self.0 |= OCCUPIED_MASK;
-        } else {
-            self.0 &= !OCCUPIED_MASK;
-        }
-    }
-
-    pub fn set_color(&mut self, color: ByteColor) {
-        self.0 &= !COLOR_MASK;
-        self.0 |= color as u8;
-    }
-
-    pub fn invert_color(&mut self) {
-        self.0 ^= COLOR_MASK;
-    }
-
-    pub fn set_piece_type(&mut self, piece_type: PieceType) {
-        self.0 &= !PIECE_MASK;
-        self.0 |= piece_type as u8;
-    }
-
-    pub fn set_king_or_rook_moved(&mut self, moved: bool) {
-        if moved {
-            self.0 |= KING_OR_ROOK_MOVED_FLAG_MASK;
-        } else {
-            self.0 &= !KING_OR_ROOK_MOVED_FLAG_MASK;
-        }
-    }
-
-    pub fn set_pawn_en_passant(&mut self, en_passant: bool) {
-        if en_passant {
-            self.0 |= PAWN_EN_PASSANT_FLAG_MASK;
-        } else {
-            self.0 &= !PAWN_EN_PASSANT_FLAG_MASK;
-        }
-    }
-
-    pub fn set_last_move(&mut self, last_move: bool) {
-        if last_move {
-            self.0 |= LAST_MOVE_FLAG_MASK;
-        } else {
-            self.0 &= !LAST_MOVE_FLAG_MASK;
-        }
-    }
-
-    pub fn from_u8(byte: u8) -> ByteSquare {
-        ByteSquare(byte)
-    }
-
-    pub fn to_u8(&self) -> u8 {
-        self.0
-    }
-
-    pub fn new(occupied: bool, color: ByteColor, piece_type: PieceType) -> ByteSquare {
-        let mut square = ByteSquare(0);
-        square.set_occupied(occupied);
-        square.set_color(color);
-        square.set_piece_type(piece_type);
-        square
-    }
-
-    pub fn new_empty() -> ByteSquare {
-        ByteSquare(0)
-    }
-
-    fn is_empty(&self) -> bool {
-        self.0 == 0
-    }
-}
-
-impl Default for ByteSquare {
-    fn default() -> ByteSquare {
-        ByteSquare::new_empty()
-    }
-}
-
-impl fmt::Display for ByteSquare {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        if self.occupied() {
-            write!(
-                f,
-                "{}",
-                match self.color() {
-                    ByteColor::White => self.piece_type().to_string().to_uppercase(),
-                    ByteColor::Black => self.piece_type().to_string().to_lowercase(),
-                }
-            )
-        } else {
-            write!(f, " ")
-        }
-    }
-}
-
+#[macro_export]
 macro_rules! sq {
-    () => {
-        ByteSquare::new_empty()
-    };
-    ($color:ident $piece_type:ident) => {
-        ByteSquare::new(true, ByteColor::$color, PieceType::$piece_type)
+    ($s:ident) => {
+        Square::$s as usize
     };
 }
 
+#[macro_export]
+macro_rules! co {
+    ($s:expr) => {
+        format!(
+            "{}{}",
+            (($s % 8) as u8 + 'a' as u8) as char,
+            (($s / 8) as u8 + '1' as u8) as char
+        )
+    };
+}
+
+#[macro_export]
+macro_rules! bs {
+    () => {
+        ByteSquare::from_u8(0)
+    };
+    ($color:ident $piece:ident) => {
+        ByteSquare::new(true, ByteColor::$color, PieceType::$piece)
+    };
+}
+
+#[derive(Clone, Copy)]
 pub struct ByteBoard {
     squares: [ByteSquare; 64],
 }
@@ -206,37 +70,20 @@ impl ByteBoard {
         }
     }
 
-    pub fn coord_to_index(coord: &str) -> usize {
-        let file = coord.chars().nth(0).unwrap() as u8 - 'a' as u8;
-        let rank = coord.chars().nth(1).unwrap() as u8 - '1' as u8;
-        (rank * 8 + file) as usize
-    }
-
-    pub fn index_to_coord(index: usize) -> String {
-        let file = (index % 8) as u8 + 'a' as u8;
-        let rank = (index / 8) as u8 + '1' as u8;
-        format!("{}{}", file as char, rank as char)
-    }
-
     fn clear_last_move(&mut self) {
         for i in 0..64 {
             self.squares[i].set_last_move(false);
         }
     }
 
-    pub fn make_move(&mut self, from: &str, to: &str) {
-        let from_index = ByteBoard::coord_to_index(from);
-        let to_index = ByteBoard::coord_to_index(to);
-        if from_index == to_index {
+    pub fn make_move(&mut self, from: usize, to: usize) {
+        if from == to || self.squares[from].is_empty() {
             return;
         }
-        if self.squares[from_index].is_empty() {
-            return;
-        }
-        self.squares[to_index] = self.squares[from_index];
-        self.squares[from_index] = ByteSquare::new_empty();
+        self.squares[to] = self.squares[from];
+        self.squares[from] = ByteSquare::new_empty();
         self.clear_last_move();
-        self.squares[to_index].set_last_move(true);
+        self.squares[to].set_last_move(true);
     }
 
     pub fn get_turn(&self) -> ByteColor {
@@ -317,6 +164,30 @@ impl ByteBoard {
         }
 
         ByteBoard { squares }
+    }
+
+    pub fn set(&mut self, index: usize, square: ByteSquare) {
+        self.squares[index] = square;
+    }
+
+    pub fn get(&self, index: usize) -> ByteSquare {
+        self.squares[index]
+    }
+
+    pub fn occupied(&self) -> impl Iterator<Item = usize> + '_ {
+        self.squares
+            .iter()
+            .enumerate()
+            .filter(|(_, square)| square.occupied())
+            .map(|(index, _)| index)
+    }
+
+    pub fn bitboard(&self) -> BitBoard {
+        let mut bitboard = EMPTY;
+        for square in self.occupied() {
+            bitboard |= BitBoard::from_square(Square::from_index(square).unwrap());
+        }
+        bitboard
     }
 }
 

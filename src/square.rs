@@ -116,6 +116,11 @@ impl Square {
             Direction::Down => self.down(),
             Direction::Left => self.left(),
             Direction::Right => self.right(),
+
+            Direction::UpLeft => self.up().and_then(|s| s.left()),
+            Direction::UpRight => self.up().and_then(|s| s.right()),
+            Direction::DownLeft => self.down().and_then(|s| s.left()),
+            Direction::DownRight => self.down().and_then(|s| s.right()),
         }
     }
 

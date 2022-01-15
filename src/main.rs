@@ -1,5 +1,6 @@
 mod bitboard;
 mod bitboard_moves;
+mod byteboard;
 mod direction;
 mod errors;
 mod fen;
@@ -10,21 +11,29 @@ mod square;
 mod state;
 mod utils;
 
-use bitboard::*;
-use bitboard_moves::*;
-use square::*;
-use state::State;
-
-// this is turning into enterprise code very quickly :kekwait:
+use crate::byteboard::byteboard::ByteBoard;
+// use bitboard::*;
+// use bitboard_moves::*;
+// use square::*;
+// use state::State;
 
 fn main() {
-    // let fen = "8/5k2/3p4/1p1Pp2p/pP2Pp1P/P4P1K/8/8 b - - 99 50";
-    // let state = State::from_fen(fen).unwrap();
-    let state = State::default();
-    println!("{:?}", state);
-    println!("{:?}", state.to_fen()); // TODO: this is rotated 90 degrees lmao
+    let mut byteboard = ByteBoard::startpos();
 
-    let pext_table = PextTable::new();
-    let bb = pext_table.queen_moves(EMPTY, Square::F5);
-    println!("{}", bb);
+    loop {
+        println!("{}\n{:?} to move", byteboard, byteboard.get_turn());
+
+        let mut input = String::new();
+        std::io::stdin().read_line(&mut input).unwrap();
+        let input = input.trim();
+
+        if input == "quit" {
+            break;
+        }
+
+        let from = input.get(0..2).unwrap();
+        let to = input.get(2..4).unwrap();
+
+        byteboard.make_move(from, to);
+    }
 }

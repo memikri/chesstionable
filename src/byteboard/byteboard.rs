@@ -195,15 +195,15 @@ impl ByteBoard {
         ])
     }
 
-    pub fn rotate(&mut self) {
-        (0..32).for_each(|i| self.squares.swap(i, 63 - i));
-    }
-
     pub fn invert(&mut self) {
-        (0..32).for_each(|i| self.squares.swap(i, i % 8 + 56 - (i / 8) * 8));
-        self.squares
-            .iter_mut()
-            .for_each(|square| square.invert_color());
+        unsafe {
+            let tmp: &mut [u64; 8] = transmute(&mut self.squares);
+            for i in 0..4 {
+                tmp[i] ^= 0x4040404040404040; // color flip
+                tmp.swap(i, i ^ 7);
+                tmp[i] ^= 0x4040404040404040; // color flip
+            }
+        }
     }
 
     pub fn coord_to_index(coord: &str) -> usize {
